@@ -253,7 +253,7 @@ except APIError as e:
 ### 基础功能测试 ✅
 
 ```bash
-$ python test_anthropic_adapter.py
+$ python tests/test_anthropic_adapter.py
 
 Test 4: Token Counting
 ✓ Text token counting

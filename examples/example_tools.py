@@ -4,6 +4,11 @@
 演示如何使用装饰器、HTTP、MCP等多种方式注册和使用自定义工具。
 """
 
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 from evoskill.tools import (
     tool,
     tool_registry,

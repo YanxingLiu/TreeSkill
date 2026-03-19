@@ -153,7 +153,7 @@ evoskill/
 ├── __init__.py           # 导出工具API
 └── ...
 
-example_tools.py          # ✨ 完整示例
+examples/example_tools.py          # ✨ 完整示例
 TOOLS_GUIDE.md           # ✨ 使用指南
 TOOLS_COMPLETE.md        # ✨ 本文档
 ```
@@ -172,7 +172,7 @@ pip install -e .
 ### 运行示例
 
 ```bash
-python example_tools.py
+python examples/example_tools.py
 ```
 
 ### 输出示例
@@ -453,7 +453,7 @@ tool = create_mcp_tool(
 | 文件 | 代码量 | 说明 |
 |------|--------|------|
 | `tools.py` | ~400行 | 核心工具注册系统 |
-| `example_tools.py` | ~300行 | 完整示例 |
+| `examples/example_tools.py` | ~300行 | 完整示例 |
 | `TOOLS_GUIDE.md` | ~500行 | 使用指南 |
 | **总计** | **~1200行** | |
 
@@ -503,12 +503,12 @@ tool = create_mcp_tool(
 ## 🚀 下一步
 
 **立即可以做的**:
-1. ✅ 运行示例: `python example_tools.py`
+1. ✅ 运行示例: `python examples/example_tools.py`
 2. ✅ 注册自己的工具
 3. ✅ 在优化器中使用
 
 **文档参考**:
-- `example_tools.py` - 完整示例
+- `examples/example_tools.py` - 完整示例
 - `TOOLS_GUIDE.md` - 使用指南
 - `tools.py` - API实现
 

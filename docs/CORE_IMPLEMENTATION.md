@@ -39,7 +39,7 @@
 ## 测试结果
 
 ```bash
-$ python test_core_abstractions.py
+$ python tests/test_core_abstractions.py
 
 ============================================================
 Core Abstraction Layer Tests

@@ -120,11 +120,11 @@ data = tool_registry.execute("database", sql="SELECT * FROM users")
 
 ## 📖 完整示例
 
-查看 `example_tools.py` 获取完整可运行示例。
+查看 `examples/example_tools.py` 获取完整可运行示例。
 
 运行测试：
 ```bash
-python example_tools.py
+python examples/example_tools.py
 ```
 
 ---

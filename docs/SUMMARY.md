@@ -55,7 +55,7 @@ evo_framework/core/
 
 ### 单元测试
 ```bash
-$ python test_core_abstractions.py
+$ python tests/test_core_abstractions.py
 
 ✓ TextPrompt tests passed
 ✓ MultimodalPrompt tests passed
@@ -240,7 +240,7 @@ prompt = TextPrompt(content="...", name="test")
 | 使用指南 | `docs/CORE_ABSTRACTION.md` | 详细的API使用文档 |
 | 实现总结 | `CORE_IMPLEMENTATION.md` | 本文档 |
 | 示例代码 | `examples/mock_adapter.py` | MockAdapter完整示例 |
-| 测试代码 | `test_core_abstractions.py` | 单元测试 |
+| 测试代码 | `tests/test_core_abstractions.py` | 单元测试 |
 
 ---
 
@@ -352,7 +352,7 @@ A: 简单直观，易于理解。可以在子类中实现语义化版本。
 📝 **关键文档**：
 - `docs/CORE_ABSTRACTION.md` - 使用指南
 - `examples/mock_adapter.py` - 示例代码
-- `test_core_abstractions.py` - 测试用例
+- `tests/test_core_abstractions.py` - 测试用例
 
 ---
 

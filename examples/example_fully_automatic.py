@@ -12,6 +12,12 @@
 - 持续集成/自动化测试
 """
 
+import logging
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 from evoskill.core import (
     TextPrompt,
     ConversationExperience,
@@ -22,7 +28,6 @@ from evoskill.core import (
 )
 from evoskill.adapters.openai import OpenAIAdapter
 from evoskill.core.validators import AutoValidator
-import logging
 
 logging.basicConfig(level=logging.INFO, format='%(message)s')
 

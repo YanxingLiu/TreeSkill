@@ -29,13 +29,13 @@
 **测试结果**：
 ```bash
 # 无需API的测试
-$ python test_openai_adapter.py
+$ python tests/test_openai_adapter.py
 ✓ Token counting
 ✓ Model variants
 All tests completed! ✓
 
 # 真实API测试（SiliconFlow）
-$ python test_openai_siliconflow.py
+$ python tests/test_openai_siliconflow.py
 ✓ Basic generation
 ✓ Context handling
 ✓ Gradient computation & application
@@ -45,8 +45,8 @@ All SiliconFlow tests completed! ✓
 ### 文档
 
 - ✅ `docs/OPENAI_ADAPTER.md` - 完整使用指南
-- ✅ `test_openai_adapter.py` - 基础测试示例
-- ✅ `test_openai_siliconflow.py` - 完整API测试示例
+- ✅ `tests/test_openai_adapter.py` - 基础测试示例
+- ✅ `tests/test_openai_siliconflow.py` - 完整API测试示例
 
 ---
 
@@ -217,8 +217,8 @@ evo_framework/
 │   ├── openai.py             # ✅ OpenAI适配器
 │   └── anthropic.py          # ⏳ TODO: Anthropic适配器
 │
-test_openai_adapter.py         # 基础测试（无API）
-test_openai_siliconflow.py     # 完整测试（真实API）
+tests/test_openai_adapter.py         # 基础测试（无API）
+tests/test_openai_siliconflow.py     # 完整测试（真实API）
 docs/OPENAI_ADAPTER.md         # 使用文档
 ```
 
@@ -370,8 +370,8 @@ except APIError as e:
 
 **文档**:
 - `docs/OPENAI_ADAPTER.md` - 完整使用指南
-- `test_openai_adapter.py` - 测试示例
-- `test_openai_siliconflow.py` - API测试示例
+- `tests/test_openai_adapter.py` - 测试示例
+- `tests/test_openai_siliconflow.py` - API测试示例
 
 ---
 

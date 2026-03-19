@@ -6,7 +6,9 @@
 
 # 直接从核心模块导入，避免触发适配器依赖
 import sys
-sys.path.insert(0, '.')
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from evoskill.core.prompts import TextPrompt
 from evoskill.core.experience import ConversationExperience, CompositeFeedback, FeedbackType

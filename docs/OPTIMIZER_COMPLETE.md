@@ -28,7 +28,7 @@
 - ✅ `CompositeValidator` - 组合验证器
 - ✅ 便捷创建函数
 
-### 5. **测试和示例**（`test_optimizer.py`）
+### 5. **测试和示例**（`tests/test_optimizer.py`）
 - ✅ 基本优化流程示例
 - ✅ 带验证的优化示例
 - ✅ 策略对比示例
@@ -343,7 +343,7 @@ evoskill/
 │
 └── __init__.py               # ✅ 导出所有类
 
-test_optimizer.py             # ✅ 完整测试示例
+tests/test_optimizer.py             # ✅ 完整测试示例
 ```
 
 ---

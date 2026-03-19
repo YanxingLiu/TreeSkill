@@ -60,7 +60,7 @@
 - ✅ 便捷创建函数
 
 **测试**:
-- `test_optimizer.py` - 完整测试示例
+- `tests/test_optimizer.py` - 完整测试示例
 - 3个示例场景
 - Mock适配器（无需API）
 
@@ -98,10 +98,10 @@ evo_framework/                   # ⚠️ 向后兼容层
 └── __init__.py                 # 重导出 evoskill
 
 tests/
-├── test_core_abstractions.py   # 核心抽象测试
-├── test_openai_adapter.py      # OpenAI测试
-├── test_anthropic_adapter.py   # Anthropic测试
-└── test_optimizer.py           # ✨ 优化器测试
+├── tests/test_core_abstractions.py   # 核心抽象测试
+├── tests/test_openai_adapter.py      # OpenAI测试
+├── tests/test_anthropic_adapter.py   # Anthropic测试
+└── tests/test_optimizer.py           # ✨ 优化器测试
 
 docs/
 ├── CORE_ABSTRACTION.md         # 核心抽象文档

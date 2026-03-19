@@ -317,7 +317,7 @@ print(f"优化后的 Prompt:\n{new_prompt.content}\n")
 
 ```bash
 # 运行完整示例
-python example_load_skill_and_config.py
+python examples/example_load_skill_and_config.py
 ```
 
 完整示例包含：
@@ -444,9 +444,9 @@ skill = load_skill("skills/my-skill.yaml")  # 会自动在 skill_path 中查找
 ## 相关文档
 
 - `/README.md` - 项目概览
-- `/OPTIMIZER_COMPLETE.md` - 优化器详细文档
-- `/TOOLS_COMPLETE.md` - 工具系统文档
-- `/MIGRATION_GUIDE.md` - 迁移指南
+- `/docs/OPTIMIZER_COMPLETE.md` - 优化器详细文档
+- `/docs/TOOLS_COMPLETE.md` - 工具系统文档
+- `/docs/MIGRATION_GUIDE.md` - 迁移指南
 - `/demo/example/config.yaml` - 完整配置模版
 - `/demo/example/skill.yaml` - Skill 文件模版
 
@@ -454,9 +454,9 @@ skill = load_skill("skills/my-skill.yaml")  # 会自动在 skill_path 中查找
 
 ## 下一步
 
-1. 查看完整示例: `python example_load_skill_and_config.py`
+1. 查看完整示例: `python examples/example_load_skill_and_config.py`
 2. 创建你的第一个 Skill: 复制 `demo/example/skill.yaml` 并修改
 3. 配置 API: 复制 `demo/example/config.yaml` 并填入你的 API Key
-4. 开始优化: 运行 `example_optimizer.py` 或 `example_fully_automatic.py`
+4. 开始优化: 运行 `examples/example_optimizer.py` 或 `examples/example_fully_automatic.py`
 
 **祝你使用愉快！** 🎉

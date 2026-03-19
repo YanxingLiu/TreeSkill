@@ -55,8 +55,8 @@ evoskill/                    # 核心模块
 
 | 模式 | 反馈来源 | 适用场景 | 优势 | 示例文件 |
 |------|---------|---------|------|---------|
-| **交互式优化** | 人工标注 `/bad`, `/rewrite` | 开发调试、快速迭代 | 精准控制、灵活调整 | `example_optimizer.py` |
-| **完全自动化** | 测试集 + LLM Judge | 生产环境、批量优化 | 无需人工、持续优化 | `example_fully_automatic.py` |
+| **交互式优化** | 人工标注 `/bad`, `/rewrite` | 开发调试、快速迭代 | 精准控制、灵活调整 | `examples/example_optimizer.py` |
+| **完全自动化** | 测试集 + LLM Judge | 生产环境、批量优化 | 无需人工、持续优化 | `examples/example_fully_automatic.py` |
 
 #### 2.2 Mermaid 流程图
 
@@ -144,7 +144,7 @@ graph LR
 
 **示例 1: 基础优化**
 ```bash
-python example_optimizer.py
+python examples/example_optimizer.py
 ```
 展示：
 - 创建初始 Prompt
@@ -155,7 +155,7 @@ python example_optimizer.py
 
 **示例 2: 工具注册**
 ```bash
-python example_tools.py
+python examples/example_tools.py
 ```
 展示：
 - Python 函数工具
@@ -170,7 +170,7 @@ export OPENAI_API_KEY="your-key"
 export OPENAI_BASE_URL="https://api.siliconflow.cn/v1"
 
 # 运行
-python example_fully_automatic.py
+python examples/example_fully_automatic.py
 ```
 展示：
 - 自动生成测试集
@@ -298,11 +298,11 @@ grep -A 6 "## 完整示例" README.md
 
 ## 相关文档
 
-- `/RENAME_COMPLETE.md` - 改名完成总结
-- `/OPTIMIZER_COMPLETE.md` - 优化器完整文档
-- `/COMPLETE_SUMMARY_V0.2.0.md` - v0.2.0 完整总结
-- `/TOOLS_COMPLETE.md` - 工具系统文档
-- `/MIGRATION_GUIDE.md` - 迁移指南
+- `/docs/RENAME_COMPLETE.md` - 改名完成总结
+- `/docs/OPTIMIZER_COMPLETE.md` - 优化器完整文档
+- `/docs/COMPLETE_SUMMARY_V0.2.0.md` - v0.2.0 完整总结
+- `/docs/TOOLS_COMPLETE.md` - 工具系统文档
+- `/docs/MIGRATION_GUIDE.md` - 迁移指南
 
 ---
 

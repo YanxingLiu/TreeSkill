@@ -11,9 +11,13 @@ All tests use Mock adapters, no real API calls.
 """
 
 import json
+import sys
 import pytest
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 from unittest.mock import Mock, MagicMock, patch
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from evoskill.core.tree_optimizer import (
     TreeAwareOptimizer,

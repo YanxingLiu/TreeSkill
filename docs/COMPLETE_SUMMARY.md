@@ -38,7 +38,7 @@
 
 **测试**:
 ```bash
-$ python test_openai_siliconflow.py
+$ python tests/test_openai_siliconflow.py
 
 ✓ Basic generation
 ✓ Context handling
@@ -60,7 +60,7 @@ All tests completed! ✓
 
 **测试**:
 ```bash
-$ python test_anthropic_adapter.py
+$ python tests/test_anthropic_adapter.py
 
 ✓ Token counting
 ✓ Model variants
@@ -187,17 +187,17 @@ if not issues:
 
 | 测试 | 路径 | 说明 |
 |------|------|------|
-| **核心抽象层** | `test_core_abstractions.py` | 单元测试 |
-| **OpenAI** | `test_openai_adapter.py` | 基础测试（无API） |
-| **OpenAI + SiliconFlow** | `test_openai_siliconflow.py` | 完整测试（真实API） |
-| **Anthropic** | `test_anthropic_adapter.py` | 基础测试 |
+| **核心抽象层** | `tests/test_core_abstractions.py` | 单元测试 |
+| **OpenAI** | `tests/test_openai_adapter.py` | 基础测试（无API） |
+| **OpenAI + SiliconFlow** | `tests/test_openai_siliconflow.py` | 完整测试（真实API） |
+| **Anthropic** | `tests/test_anthropic_adapter.py` | 基础测试 |
 
 ### 示例代码
 
 | 示例 | 路径 | 说明 |
 |------|------|------|
 | **Mock Adapter** | `examples/mock_adapter.py` | 演示适配器接口 |
-| **OpenAI SiliconFlow** | `test_openai_siliconflow.py` | 完整使用示例 |
+| **OpenAI SiliconFlow** | `tests/test_openai_siliconflow.py` | 完整使用示例 |
 
 ---
 

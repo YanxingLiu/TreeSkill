@@ -106,11 +106,11 @@ messages = compile_messages(skill, user_input)
 
 ### 3. 完整示例代码 ✅
 
-**文件**: `example_load_skill_and_config.py`
+**文件**: `examples/example_load_skill_and_config.py`
 
 **运行**:
 ```bash
-python example_load_skill_and_config.py
+python examples/example_load_skill_and_config.py
 ```
 
 **示例内容**:
@@ -203,7 +203,7 @@ __all__ = [
 
 ### 新增文件
 
-1. **`example_load_skill_and_config.py`** - 完整示例代码（295 行）
+1. **`examples/example_load_skill_and_config.py`** - 完整示例代码（295 行）
 2. **`USAGE_GUIDE.md`** - 完整使用指南（~400 行）
 
 ### 修改文件
@@ -238,7 +238,7 @@ cp demo/example/skill.yaml skills/my-skill.yaml
 # 编辑 skills/my-skill.yaml
 
 # 4. 加载并使用
-python example_load_skill_and_config.py
+python examples/example_load_skill_and_config.py
 ```
 
 ### 在代码中使用
@@ -313,7 +313,7 @@ skill_v1 = load_skill("skills/my-skill-v1.0.yaml")
 ### 测试通过 ✅
 
 ```bash
-$ python example_load_skill_and_config.py
+$ python examples/example_load_skill_and_config.py
 
 ✓ 从 demo/example/config.yaml 加载配置
 ✓ 从 demo/example/skill.yaml 加载 Skill
@@ -329,16 +329,16 @@ $ python example_load_skill_and_config.py
 
 - `README.md` - 更新了完整示例部分
 - `USAGE_GUIDE.md` - 新增完整使用指南
-- `example_load_skill_and_config.py` - 可运行的完整示例
+- `examples/example_load_skill_and_config.py` - 可运行的完整示例
 
 ---
 
 ## 相关文档
 
 - `/README.md` - 项目概览（已更新）
-- `/USAGE_GUIDE.md` - 完整使用指南（新增）
-- `/OPTIMIZER_COMPLETE.md` - 优化器详细文档
-- `/TOOLS_COMPLETE.md` - 工具系统文档
+- `/docs/USAGE_GUIDE.md` - 完整使用指南（新增）
+- `/docs/OPTIMIZER_COMPLETE.md` - 优化器详细文档
+- `/docs/TOOLS_COMPLETE.md` - 工具系统文档
 - `/demo/example/config.yaml` - 配置文件模版
 - `/demo/example/skill.yaml` - Skill 文件模版
 
@@ -350,7 +350,7 @@ $ python example_load_skill_and_config.py
 1. ✅ 揭示了框架已有完整的 Config 机制
 2. ✅ 揭示了框架已有完整的 Skill 存储和加载机制
 3. ✅ 创建了完整的使用指南（`USAGE_GUIDE.md`）
-4. ✅ 创建了可运行的完整示例（`example_load_skill_and_config.py`）
+4. ✅ 创建了可运行的完整示例（`examples/example_load_skill_and_config.py`）
 5. ✅ 更新了 README 添加新示例
 6. ✅ 修复了 MockAdapter 导入问题
 7. ✅ 添加了 Skill 管理函数的导出

@@ -27,8 +27,11 @@ graph TD
 
 import json
 import logging
+import sys
 from pathlib import Path
 from typing import List
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from evoskill import (
     SkillTree,

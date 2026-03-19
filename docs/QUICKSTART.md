@@ -81,7 +81,7 @@ print(f"新内容:\n{new_prompt.content}")
 python examples/mock_adapter.py
 
 # 运行单元测试
-python test_core_abstractions.py
+python tests/test_core_abstractions.py
 ```
 
 ## 多模态示例

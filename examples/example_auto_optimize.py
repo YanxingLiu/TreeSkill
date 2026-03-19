@@ -3,6 +3,11 @@
 这个示例演示如何实现完全自动化的提示词优化循环。
 """
 
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 from evoskill.core import (
     TextPrompt,
     ConversationExperience,

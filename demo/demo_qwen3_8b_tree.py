@@ -15,12 +15,15 @@ import csv
 import logging
 import random
 import os
+import sys
 from pathlib import Path
 from typing import List, Dict
 from collections import Counter
 from dotenv import load_dotenv
 
 load_dotenv()
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from evoskill import (
     OpenAIAdapter,
@@ -229,7 +232,7 @@ def main():
         meta=SkillMeta(name="paper-classifier", description="Paper classifier"),
     )
 
-    output_path = Path("demo-qwen3-8b-tree-5rounds/")
+    output_path = Path("demo/outputs/demo-qwen3-8b-tree-5rounds/")
     tree = SkillTree(
         root=SkillNode(name="root", skill=root_skill),
         base_path=output_path,

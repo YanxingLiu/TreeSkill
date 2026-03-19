@@ -5,11 +5,14 @@
 使用方法：
 1. 激活 conda 环境：conda activate pr
 2. 安装依赖：pip install -e .
-3. 运行验证：python verify_rename.py
+3. 运行验证：python tests/verify_rename.py
 """
 
 import sys
 import traceback
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 def test_core_imports():
     """测试核心抽象层导入"""
@@ -220,8 +223,8 @@ def main():
     if passed == total:
         print("\n🎉 所有测试通过！evoskill 包已正确安装和配置。")
         print("\n下一步:")
-        print("  1. 运行测试: pytest test_*.py")
-        print("  2. 查看文档: cat RENAME_COMPLETE.md")
+        print("  1. 运行测试: pytest tests/test_*.py")
+        print("  2. 查看文档: cat docs/RENAME_COMPLETE.md")
         print("  3. 开始使用: from evoskill import TextPrompt")
         return 0
     else:

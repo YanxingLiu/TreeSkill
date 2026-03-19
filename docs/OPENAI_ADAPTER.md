@@ -209,7 +209,7 @@ response = adapter.generate(
 ### SiliconFlow API 测试 ✅
 
 ```bash
-$ python test_openai_siliconflow.py
+$ python tests/test_openai_siliconflow.py
 
 Test 1: Basic Generation
 ✓ Response: 好的，我会尽力简洁地回答您的问题...
@@ -382,8 +382,8 @@ response = adapter.generate(prompt, max_tokens=100)
 ## 示例代码
 
 完整的示例代码请参考：
-- `test_openai_adapter.py` - 基础测试（不需要API）
-- `test_openai_siliconflow.py` - 完整测试（使用SiliconFlow API）
+- `tests/test_openai_adapter.py` - 基础测试（不需要API）
+- `tests/test_openai_siliconflow.py` - 完整测试（使用SiliconFlow API）
 - `examples/mock_adapter.py` - Mock adapter示例
 
 ---
