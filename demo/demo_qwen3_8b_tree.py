@@ -149,22 +149,23 @@ def evaluate(adapter, system_prompt, test_data):
     return accuracy
 
 
-def optimize_round(adapter, tree, experiences, round_name):
+def optimize_round(adapter, tree, experiences, round_name, enable_prune=True):
     """优化一轮 - 使用渐进式剪枝策略"""
     logger.info(f"\n{'='*60}")
     logger.info(f"🔄 {round_name}")
+    logger.info(f"   Auto-Prune: {'✅' if enable_prune else '❌'}")
     logger.info(f"{'='*60}")
 
     config = TreeOptimizerConfig(
         auto_split=True,  # ✅ 启用自动拆分
-        auto_prune=True,  # ✅ 启用自动剪枝
-        prune_strategy="conservative",  # 🔧 渐进式策略：保守剪枝
-        prune_protection_rounds=3,  # 🔧 新节点保护3轮
-        prune_usage_threshold=1,  # 🔧 至少使用1次才考虑剪枝
+        auto_prune=enable_prune,  # 🔧 根据参数决定是否剪枝
+        prune_strategy="moderate",  # 🔧 改为 moderate 策略
+        prune_protection_rounds=1,  # 🔧 新节点保护1轮
+        prune_usage_threshold=1,  # 🔧 至少使用1次
         collapse_instead_of_prune=True,  # 🔧 折叠而非删除（渐进式披露）
         max_tree_depth=3,
         min_samples_for_split=3,
-        prune_threshold=0.2,
+        prune_threshold=0.3,  # 🔧 性能阈值 0.3
     )
 
     base_config = OptimizerConfig(
@@ -228,7 +229,7 @@ def main():
         meta=SkillMeta(name="paper-classifier", description="Paper classifier"),
     )
 
-    output_path = Path("demo-qwen3-8b-tree/")
+    output_path = Path("demo-qwen3-8b-tree-5rounds/")
     tree = SkillTree(
         root=SkillNode(name="root", skill=root_skill),
         base_path=output_path,
@@ -246,7 +247,7 @@ def main():
     best_accuracy = initial_accuracy
 
     # 3轮优化
-    num_rounds = 3
+    num_rounds = 5
     samples_per_round = len(train_data) // num_rounds
 
     for round_num in range(1, num_rounds + 1):
@@ -278,6 +279,7 @@ def main():
             tree,
             experiences,
             f"第{round_num}轮优化",
+            enable_prune=enable_prune,
         )
 
         # 评估

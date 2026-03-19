@@ -670,7 +670,7 @@ class TreeAwareOptimizer:
         for exp in experiences:
             # Check if this experience might be related to this node
             # This is a simple heuristic - in production you'd have better tracking
-            metadata = exp.get_metadata()
+            metadata = exp.metadata if hasattr(exp, 'metadata') else {}
             if metadata and isinstance(metadata, dict):
                 skill_name = metadata.get("skill_name", "").lower()
                 if skill_name and (node_name in skill_name or skill_name in node_name):
@@ -1151,30 +1151,3 @@ class TreeAwareOptimizer:
         )
         return new_skill
 
-    def _collect_node_metrics(self, node: Any, experiences: List[Experience]) -> Dict:
-        """Collect performance metrics for a node.
-
-        Returns metrics:
-        - performance_score: Average feedback score
-        - usage_count: Number of times used
-        - success_rate: Percentage of positive feedback
-
-        Parameters
-        ----------
-        node : SkillNode
-            The node to collect metrics for.
-        experiences : List[Experience]
-            All experiences.
-
-        Returns
-        -------
-        Dict
-            Performance metrics.
-        """
-        # TODO: Implement properly in task 4
-        # For now, return default values
-        return {
-            "performance_score": 0.5,
-            "usage_count": 0,
-            "success_rate": 0.5,
-        }
