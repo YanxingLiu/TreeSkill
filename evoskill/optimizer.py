@@ -115,8 +115,8 @@ class APOEngine:
         Flow:
         1. Diagnose — select traces with feedback
         2. Gradient — compute textual gradient (randomly chosen template)
-        3. Candidates — generate N candidate rewrites
-        4. Score — evaluate each candidate against the traces
+        3. Candidates — generate N candidate rewrites **in parallel**
+        4. Score — evaluate all candidates **in parallel**
         5. Select — pick the best (or keep original if none improve)
         """
         # Step 1 — Diagnosis
@@ -132,32 +132,57 @@ class APOEngine:
         gradient = self._compute_gradient(current_skill, diagnosed)
         logger.debug("Gradient analysis:\n%s", gradient)
 
-        # Step 3 — Generate N candidates
+        # Step 3 — Generate N candidates in parallel
         num_candidates = self._config.apo.num_candidates
-        candidates: List[str] = []
-        for _ in range(num_candidates):
-            new_prompt = self._apply_update(current_skill, gradient)
-            candidates.append(new_prompt)
+        edit_message_batches = [
+            self._build_edit_messages(current_skill, gradient)
+            for _ in range(num_candidates)
+        ]
+        candidate_responses = self._llm.generate_batch(
+            edit_message_batches,
+            model=self._config.llm.judge_model,
+        )
+        candidates = [
+            r.content if isinstance(r.content, str) else str(r.content)
+            for r in candidate_responses
+            if r.content  # skip empty responses
+        ]
+        logger.info("Generated %d candidates (requested %d)", len(candidates), num_candidates)
 
-        # Step 4 — Score candidates + original
-        best_prompt = current_skill.system_prompt
-        best_score = self._score_prompt(current_skill.system_prompt, diagnosed)
-        logger.info("Current prompt score: %.2f", best_score)
+        if not candidates:
+            logger.warning("All candidate generations failed — keeping original.")
+            return current_skill
 
-        for i, candidate in enumerate(candidates):
-            score = self._score_prompt(candidate, diagnosed)
-            logger.info("Candidate %d score: %.2f", i + 1, score)
-            if score > best_score:
-                best_score = score
-                best_prompt = candidate
+        # Step 4 — Score all (original + candidates) in parallel
+        all_prompts = [current_skill.system_prompt] + candidates
+        score_message_batches = [
+            self._build_score_messages(prompt, diagnosed)
+            for prompt in all_prompts
+        ]
+        score_responses = self._llm.generate_batch(
+            score_message_batches,
+            model=self._config.llm.judge_model,
+        )
+        scores = [
+            self._parse_score(r.content if isinstance(r.content, str) else str(r.content))
+            for r in score_responses
+        ]
 
-        # Step 5 — Accept or reject
-        if best_prompt == current_skill.system_prompt:
+        # Log scores
+        logger.info("Current prompt score: %.2f", scores[0])
+        for i, s in enumerate(scores[1:]):
+            logger.info("Candidate %d score: %.2f", i + 1, s)
+
+        # Step 5 — Select best
+        best_idx = max(range(len(scores)), key=lambda i: scores[i])
+        if best_idx == 0:
             logger.info("No candidate improved over current — keeping original.")
             return current_skill
 
+        best_prompt = all_prompts[best_idx]
+        best_score = scores[best_idx]
         new_version = _increment_version(current_skill.version)
-        logger.info("Accepted candidate (score=%.2f) → %s", best_score, new_version)
+        logger.info("Accepted candidate %d (score=%.2f) → %s", best_idx, best_score, new_version)
         return current_skill.model_copy(
             update={
                 "system_prompt": best_prompt,
@@ -229,10 +254,10 @@ class APOEngine:
     # Apply update (with edit strategy diversity)
     # ------------------------------------------------------------------
 
-    def _apply_update(self, skill: Skill, gradient: str) -> str:
-        """Ask the judge model to rewrite the system prompt.
+    def _build_edit_messages(self, skill: Skill, gradient: str) -> List[Message]:
+        """Build the messages for a single edit/rewrite request.
 
-        Randomly selects between full-rewrite and conservative one-point fix.
+        Each call randomly picks an edit template for diversity.
         """
         system_prompt = random.choice(_EDIT_TEMPLATES)
 
@@ -243,7 +268,7 @@ class APOEngine:
                 f"Make sure the rewritten prompt aligns with this direction."
             )
 
-        messages = [
+        return [
             Message(role="system", content=system_prompt + target_hint),
             Message(
                 role="user",
@@ -254,6 +279,10 @@ class APOEngine:
                 ),
             ),
         ]
+
+    def _apply_update(self, skill: Skill, gradient: str) -> str:
+        """Ask the judge model to rewrite the system prompt (sync, single call)."""
+        messages = self._build_edit_messages(skill, gradient)
         response = self._llm.generate(
             messages, model=self._config.llm.judge_model
         )
@@ -263,12 +292,8 @@ class APOEngine:
     # Candidate scoring (lightweight validation)
     # ------------------------------------------------------------------
 
-    def _score_prompt(self, prompt: str, traces: List[Trace]) -> float:
-        """Score a prompt against feedback traces using the judge model.
-
-        Returns a float 0.0–1.0.  The judge evaluates how well the prompt
-        would address the failures described in the traces.
-        """
+    def _build_score_messages(self, prompt: str, traces: List[Trace]) -> List[Message]:
+        """Build the messages for a single scoring request."""
         failure_summaries: List[str] = []
         for t in traces:
             fb: Feedback = t.feedback  # type: ignore[assignment]
@@ -278,7 +303,7 @@ class APOEngine:
 
         failures_block = "\n".join(failure_summaries)
 
-        messages = [
+        return [
             Message(
                 role="system",
                 content=(
@@ -299,15 +324,12 @@ class APOEngine:
                 ),
             ),
         ]
-        response = self._llm.generate(
-            messages, model=self._config.llm.judge_model
-        )
-        raw = response.content if isinstance(response.content, str) else str(response.content)
-        raw = raw.strip()
 
-        # Parse score from JSON response
+    @staticmethod
+    def _parse_score(raw: str) -> float:
+        """Parse a score from judge model JSON response."""
+        raw = raw.strip()
         try:
-            # Handle markdown-wrapped JSON
             if raw.startswith("```"):
                 raw = raw.split("```")[1]
                 if raw.startswith("json"):
@@ -315,12 +337,20 @@ class APOEngine:
                 raw = raw.strip()
             data = json.loads(raw)
             score = float(data.get("score", 0.5))
-            reason = data.get("reason", "")
-            logger.debug("Score %.2f — %s", score, reason)
+            logger.debug("Score %.2f — %s", score, data.get("reason", ""))
             return max(0.0, min(1.0, score))
         except (json.JSONDecodeError, ValueError, TypeError):
             logger.warning("Failed to parse score from: %s", raw[:100])
-            return 0.5  # neutral fallback
+            return 0.5
+
+    def _score_prompt(self, prompt: str, traces: List[Trace]) -> float:
+        """Score a prompt (sync, single call). Used by non-batch code paths."""
+        messages = self._build_score_messages(prompt, traces)
+        response = self._llm.generate(
+            messages, model=self._config.llm.judge_model
+        )
+        raw = response.content if isinstance(response.content, str) else str(response.content)
+        return self._parse_score(raw)
 
     # ------------------------------------------------------------------
     # Tree-aware optimization
