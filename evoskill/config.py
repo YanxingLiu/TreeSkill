@@ -8,7 +8,7 @@ Priority (highest to lowest):
 
 Usage::
 
-    python -m evo_framework.main --config config.yaml --skill my-skill
+    python -m evoskill.main --config config.yaml --skill my-skill
 """
 
 from __future__ import annotations
