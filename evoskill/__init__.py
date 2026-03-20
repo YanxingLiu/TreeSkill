@@ -158,6 +158,7 @@ from evoskill.schema import (
 from evoskill.config import GlobalConfig
 from evoskill.skill_tree import SkillTree, SkillNode
 from evoskill.checkpoint import CheckpointManager
+from evoskill.resume import ResumeState
 
 # Skill management functions (Agent Skills format)
 from evoskill.skill import (
@@ -166,6 +167,19 @@ from evoskill.skill import (
     compile_messages,
     SKILL_FILE,
     CONFIG_FILE,
+    SCRIPT_FILE,
+)
+
+# Script validation & storage
+from evoskill.script import (
+    ScriptValidator,
+    ScriptValidationResult,
+    ScriptIssue,
+    validate_script,
+    validate_script_file,
+    load_script,
+    save_script,
+    load_script_as_tools,
 )
 
 __version__ = "0.2.0"
@@ -260,6 +274,17 @@ __all__ = [
     "compile_messages",
     "SKILL_FILE",
     "CONFIG_FILE",
+    "SCRIPT_FILE",
+
+    # Script validation & storage
+    "ScriptValidator",
+    "ScriptValidationResult",
+    "ScriptIssue",
+    "validate_script",
+    "validate_script_file",
+    "load_script",
+    "save_script",
+    "load_script_as_tools",
 
     # Version
     "__version__",

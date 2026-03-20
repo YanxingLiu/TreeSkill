@@ -22,6 +22,7 @@ from typing import Dict, List, Optional, TYPE_CHECKING
 
 from evoskill.config import GlobalConfig
 from evoskill.llm import LLMClient
+from evoskill.resume import ResumeState
 from evoskill.schema import Feedback, Message, Skill, Trace
 
 if TYPE_CHECKING:
@@ -298,36 +299,81 @@ class APOEngine:
         tree: "SkillTree",
         traces: List[Trace],
         auto_split: bool = True,
+        resume: Optional[ResumeState] = None,
+        on_node_done: Optional[callable] = None,
     ) -> "SkillTree":
-        """Recursively optimise every skill in a tree.
+        """Recursively optimise every skill in a tree with resume support.
 
         Strategy: optimise leaves first, then parents (bottom-up).
         If *auto_split* is ``True``, the engine will analyse each node
         for potential splits and apply them automatically.
 
+        Parameters
+        ----------
+        tree :
+            The skill tree to optimise in-place.
+        traces :
+            Interaction traces with feedback.
+        auto_split :
+            Whether to auto-analyse nodes for splitting.
+        resume :
+            Resume state for crash recovery. If provided, already-completed
+            nodes are skipped, and progress is saved after each node.
+        on_node_done :
+            Optional callback ``(dotpath: str, node: SkillNode) -> None``
+            called after each node is optimised. Useful for progress display.
+
         Returns the mutated tree (same object).
         """
-        from evoskill.skill_tree import SkillTree  # noqa: deferred
-
-        self._evolve_node(tree.root, traces, auto_split=auto_split)
+        self._evolve_node(
+            tree.root,
+            traces,
+            tree=tree,
+            auto_split=auto_split,
+            resume=resume,
+            on_node_done=on_node_done,
+            _path_prefix="",
+        )
         return tree
 
     def _evolve_node(
         self,
         node: "SkillNode",
         traces: List[Trace],
+        tree: "SkillTree",
         auto_split: bool = True,
+        resume: Optional[ResumeState] = None,
+        on_node_done: Optional[callable] = None,
+        _path_prefix: str = "",
     ) -> None:
         """Recursively optimise a single node and its children."""
         from evoskill.skill_tree import SkillNode  # noqa: deferred
 
+        # Build this node's dotpath for resume tracking
+        dotpath = f"{_path_prefix}.{node.name}" if _path_prefix else node.name
+
         # Recurse into children first (bottom-up)
         for child in list(node.children.values()):
-            self._evolve_node(child, traces, auto_split=auto_split)
+            self._evolve_node(
+                child, traces,
+                tree=tree,
+                auto_split=auto_split,
+                resume=resume,
+                on_node_done=on_node_done,
+                _path_prefix=dotpath,
+            )
+
+        # Skip if already done in a previous (interrupted) run
+        if resume and resume.is_node_done(dotpath):
+            logger.info("Skipping already-optimised node: %s", dotpath)
+            return
 
         # Optimise this node's skill
         diagnosed = [t for t in traces if t.feedback is not None]
         if not diagnosed:
+            # No feedback → mark done and skip
+            if resume:
+                resume.mark_node_done(dotpath)
             return
 
         node.skill = self.optimize(node.skill, diagnosed)
@@ -337,6 +383,7 @@ class APOEngine:
             specs = self.analyze_split_need(node.skill, diagnosed)
             if specs:
                 enriched = self.generate_child_prompts(node.skill, specs)
+                child_names = []
                 for spec in enriched:
                     child_skill = node.skill.model_copy(
                         update={
@@ -353,12 +400,24 @@ class APOEngine:
                         skill=child_skill,
                     )
                     node.children[spec["name"]] = child_node
+                    child_names.append(spec["name"])
                 logger.info(
                     "Auto-split '%s' into %d children: %s",
                     node.name,
                     len(enriched),
-                    [s["name"] for s in enriched],
+                    child_names,
                 )
+                if resume:
+                    resume.mark_node_split(dotpath, child_names)
+
+        # --- Checkpoint: save tree + mark node done ---
+        if resume:
+            tree.save()  # persist tree to disk after each node
+            resume.mark_node_done(dotpath)
+            logger.info("Progress saved after node: %s", dotpath)
+
+        if on_node_done:
+            on_node_done(dotpath, node)
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -2,9 +2,9 @@
 
 Usage::
 
-    python -m evo_framework.main --skill <name-or-path>
-    python -m evo_framework.main --skill <name-or-path> --optimize
-    python -m evo_framework.main --ckpt <checkpoint-path>
+    python -m evoskill.main --skill <name-or-path>
+    python -m evoskill.main --skill <name-or-path> --optimize
+    python -m evoskill.main --ckpt <checkpoint-path>
 """
 
 from __future__ import annotations
@@ -22,6 +22,7 @@ from evoskill.cli import ChatCLI
 from evoskill.config import GlobalConfig
 from evoskill.llm import LLMClient
 from evoskill.optimizer import APOEngine
+from evoskill.resume import ResumeState
 from evoskill.skill_tree import SkillTree
 from evoskill.storage import TraceStorage
 
@@ -61,6 +62,38 @@ def _resolve_skill_path(name_or_path: str, config: GlobalConfig) -> Path:
     skill_module.save(default_skill, default_dir)
     console.print(f"[dim]Created default skill → {default_dir}/SKILL.md[/dim]")
     return default_dir.resolve()
+
+
+def _handle_resume(skill_path: Path) -> ResumeState | None:
+    """Check for an incomplete optimization and ask the user what to do.
+
+    Returns the ResumeState to continue, or None to start fresh.
+    """
+    state = ResumeState.load(skill_path)
+    if state is None:
+        return None
+
+    console.print(f"\n[bold yellow]⚠ 发现未完成的优化任务[/bold yellow]")
+    console.print(state.summary())
+    console.print()
+
+    try:
+        from rich.prompt import Prompt
+        choice = Prompt.ask(
+            "继续上次的优化 (resume) 还是重新开始 (restart)?",
+            choices=["resume", "restart"],
+            default="resume",
+        )
+    except (EOFError, KeyboardInterrupt):
+        choice = "resume"
+
+    if choice == "resume":
+        console.print("[green]✓ 从断点继续[/green]")
+        return state
+    else:
+        state.clear()
+        console.print("[dim]已清除旧进度，重新开始[/dim]")
+        return None
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -118,7 +151,6 @@ def main(argv: list[str] | None = None) -> None:
         info = ckpt_mgr.load(args.ckpt)
         skill_path = info["skill_path"]
         if info["trace_path"]:
-            # Update storage config to use the checkpoint's traces
             config = config.model_copy(
                 update={"storage": config.storage.model_copy(
                     update={"trace_path": info["trace_path"]}
@@ -131,7 +163,6 @@ def main(argv: list[str] | None = None) -> None:
         skill_path = _resolve_skill_path(args.skill, config)
 
     # --- Load skill (always a directory with SKILL.md) ---
-    skill_tree = None
     skill_tree = SkillTree.load(skill_path)
     loaded_skill = skill_tree.root.skill
     leaf_count = skill_tree.root.leaf_count()
@@ -154,12 +185,45 @@ def main(argv: list[str] | None = None) -> None:
         if not traces:
             console.print("[yellow]No feedback traces found — nothing to optimize.[/yellow]")
             sys.exit(0)
+
+        # Check for resume state
+        resume = _handle_resume(skill_path)
+        if resume is None:
+            resume = ResumeState.create(
+                skill_dir=skill_path,
+                metadata={"trace_count": len(traces)},
+            )
+
         console.print(
             f"[bold]Running APO[/bold] on {len(traces)} feedback traces …"
         )
 
-        engine.evolve_tree(skill_tree, traces)
-        skill_tree.save()
+        def _on_node_done(dotpath: str, node) -> None:
+            console.print(
+                f"  [green]✓[/green] {dotpath} → {node.skill.version}"
+            )
+
+        try:
+            engine.evolve_tree(
+                skill_tree, traces,
+                resume=resume,
+                on_node_done=_on_node_done,
+            )
+            skill_tree.save()
+            resume.clear()  # all done — remove resume file
+        except KeyboardInterrupt:
+            console.print(
+                "\n[yellow]⚠ 优化被中断，进度已保存。"
+                "下次运行 --optimize 可从断点继续。[/yellow]"
+            )
+            sys.exit(1)
+        except Exception:
+            console.print(
+                "\n[red]✗ 优化出错，进度已保存。"
+                "下次运行 --optimize 可从断点继续。[/red]"
+            )
+            raise
+
         new_skill = skill_tree.root.skill
 
         # Save checkpoint
