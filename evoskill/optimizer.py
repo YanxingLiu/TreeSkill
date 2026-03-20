@@ -346,13 +346,21 @@ class APOEngine:
         on_node_done: Optional[callable] = None,
         _path_prefix: str = "",
     ) -> None:
-        """Recursively optimise a single node and its children."""
+        """Recursively optimise a single node and its children.
+
+        Order:
+        1. Recurse into existing children (bottom-up)
+        2. Optimise this node
+        3. Auto-split if leaf node with conflicting feedback
+        4. Recurse into newly created children (so they get optimised too)
+        5. Save checkpoint
+        """
         from evoskill.skill_tree import SkillNode  # noqa: deferred
 
         # Build this node's dotpath for resume tracking
         dotpath = f"{_path_prefix}.{node.name}" if _path_prefix else node.name
 
-        # Recurse into children first (bottom-up)
+        # Step 1: Recurse into existing children (bottom-up)
         for child in list(node.children.values()):
             self._evolve_node(
                 child, traces,
@@ -368,23 +376,26 @@ class APOEngine:
             logger.info("Skipping already-optimised node: %s", dotpath)
             return
 
-        # Optimise this node's skill
+        # Step 2: Optimise this node's skill
         diagnosed = [t for t in traces if t.feedback is not None]
         if not diagnosed:
-            # No feedback → mark done and skip
             if resume:
                 resume.mark_node_done(dotpath)
             return
 
         node.skill = self.optimize(node.skill, diagnosed)
 
-        # Auto-split analysis (only for leaf or shallow nodes)
-        if auto_split and len(diagnosed) >= 2:
+        # Step 3: Auto-split (only for LEAF nodes to avoid overwriting children)
+        new_children: List[SkillNode] = []
+        if auto_split and node.is_leaf and len(diagnosed) >= 2:
             specs = self.analyze_split_need(node.skill, diagnosed)
             if specs:
                 enriched = self.generate_child_prompts(node.skill, specs)
                 child_names = []
                 for spec in enriched:
+                    # Validate spec has required fields
+                    if "name" not in spec:
+                        continue
                     child_skill = node.skill.model_copy(
                         update={
                             "name": spec["name"],
@@ -400,19 +411,32 @@ class APOEngine:
                         skill=child_skill,
                     )
                     node.children[spec["name"]] = child_node
+                    new_children.append(child_node)
                     child_names.append(spec["name"])
-                logger.info(
-                    "Auto-split '%s' into %d children: %s",
-                    node.name,
-                    len(enriched),
-                    child_names,
-                )
-                if resume:
-                    resume.mark_node_split(dotpath, child_names)
+                if child_names:
+                    logger.info(
+                        "Auto-split '%s' into %d children: %s",
+                        node.name,
+                        len(child_names),
+                        child_names,
+                    )
+                    if resume:
+                        resume.mark_node_split(dotpath, child_names)
 
-        # --- Checkpoint: save tree + mark node done ---
+        # Step 4: Optimise newly created children (so they don't wait until next round)
+        for child_node in new_children:
+            self._evolve_node(
+                child_node, traces,
+                tree=tree,
+                auto_split=False,  # don't split children of a just-split node
+                resume=resume,
+                on_node_done=on_node_done,
+                _path_prefix=dotpath,
+            )
+
+        # Step 5: Checkpoint — save tree + mark node done
         if resume:
-            tree.save()  # persist tree to disk after each node
+            tree.save()
             resume.mark_node_done(dotpath)
             logger.info("Progress saved after node: %s", dotpath)
 
@@ -424,12 +448,25 @@ class APOEngine:
 # ---------------------------------------------------------------------------
 
 def _increment_version(version: str) -> str:
-    """Bump a ``vX.Y`` style version string → ``vX.(Y+1)``."""
-    if not version.startswith("v"):
-        return version + ".1"
-    parts = version[1:].split(".")
-    if len(parts) == 2 and parts[1].isdigit():
-        return f"v{parts[0]}.{int(parts[1]) + 1}"
+    """Bump the last numeric segment of a version string.
+
+    Examples: ``v1.0`` → ``v1.1``, ``1.0`` → ``1.1``,
+    ``v1.0.2`` → ``v1.0.3``, ``v2`` → ``v2.1``.
+    """
+    prefix = ""
+    v = version
+    if v.startswith("v"):
+        prefix = "v"
+        v = v[1:]
+
+    parts = v.split(".")
+    # Bump the last numeric part
+    for i in range(len(parts) - 1, -1, -1):
+        if parts[i].isdigit():
+            parts[i] = str(int(parts[i]) + 1)
+            return prefix + ".".join(parts)
+
+    # No numeric part found — append .1
     return version + ".1"
 
 
