@@ -23,7 +23,18 @@ from __future__ import annotations
 import json
 import logging
 import random
+import time
 from typing import Dict, List, Optional, TYPE_CHECKING
+
+from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
+    Progress,
+    SpinnerColumn,
+    TextColumn,
+    TimeElapsedColumn,
+    TimeRemainingColumn,
+)
 
 from evoskill.config import GlobalConfig
 from evoskill.llm import LLMClient
@@ -311,37 +322,55 @@ class APOEngine:
                     "given System Prompt would handle the listed failure cases. "
                     "Consider whether the prompt's instructions would prevent "
                     "each failure from recurring.\n\n"
-                    "Return ONLY a JSON object: {\"score\": <float 0.0-1.0>, "
-                    "\"reason\": \"<brief explanation>\"}\n"
-                    "No other text."
+                    "Return ONLY a number between 0.0 and 1.0. Nothing else."
                 ),
             ),
             Message(
                 role="user",
                 content=(
                     f"System Prompt to evaluate:\n\"\"\"\n{prompt}\n\"\"\"\n\n"
-                    f"Known failure cases:\n{failures_block}"
+                    f"Known failure cases:\n{failures_block}\n\n"
+                    "Score (0.0-1.0):"
                 ),
             ),
         ]
 
     @staticmethod
     def _parse_score(raw: str) -> float:
-        """Parse a score from judge model JSON response."""
+        """Parse a score from judge model response.
+
+        Tries JSON first, then regex extraction of any float.
+        """
+        import re
         raw = raw.strip()
+
+        # Try JSON parse first
         try:
-            if raw.startswith("```"):
-                raw = raw.split("```")[1]
-                if raw.startswith("json"):
-                    raw = raw[4:]
-                raw = raw.strip()
-            data = json.loads(raw)
-            score = float(data.get("score", 0.5))
-            logger.debug("Score %.2f — %s", score, data.get("reason", ""))
-            return max(0.0, min(1.0, score))
+            if raw.startswith("{"):
+                data = json.loads(raw)
+                score = float(data.get("score", 0.5))
+                return max(0.0, min(1.0, score))
         except (json.JSONDecodeError, ValueError, TypeError):
-            logger.warning("Failed to parse score from: %s", raw[:100])
-            return 0.5
+            pass
+
+        # Try direct float
+        try:
+            score = float(raw)
+            return max(0.0, min(1.0, score))
+        except ValueError:
+            pass
+
+        # Regex: find first float-like pattern
+        m = re.search(r"(\d+\.?\d*)", raw)
+        if m:
+            score = float(m.group(1))
+            if score <= 1.0:
+                return max(0.0, score)
+            elif score <= 100.0:
+                return score / 100.0  # handle percentage
+
+        logger.warning("Failed to parse score from: %s", raw[:100])
+        return 0.5
 
     def _score_prompt(self, prompt: str, traces: List[Trace]) -> float:
         """Score a prompt (sync, single call). Used by non-batch code paths."""

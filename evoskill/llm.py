@@ -36,6 +36,8 @@ _MAX_DELAY = 60.0    # seconds
 
 # HTTP status codes / error types that should trigger retry
 _RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
+# 400 from load balancers (ALB) are transient, but true 400s from the API are not
+_RETRYABLE_400_BODIES = {"alb", "bad gateway", "upstream"}
 
 
 def _should_retry(exc: Exception) -> bool:
@@ -43,7 +45,12 @@ def _should_retry(exc: Exception) -> bool:
     if isinstance(exc, openai.RateLimitError):
         return True
     if isinstance(exc, openai.APIStatusError):
-        return exc.status_code in _RETRYABLE_STATUS_CODES
+        if exc.status_code in _RETRYABLE_STATUS_CODES:
+            return True
+        # Some 400s from load balancers (ALB/nginx) are transient
+        if exc.status_code == 400:
+            body = str(exc).lower()
+            return any(kw in body for kw in _RETRYABLE_400_BODIES)
     if isinstance(exc, (openai.APIConnectionError, openai.APITimeoutError)):
         return True
     return False
