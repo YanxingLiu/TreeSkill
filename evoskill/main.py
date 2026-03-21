@@ -64,13 +64,24 @@ def _resolve_skill_path(name_or_path: str, config: GlobalConfig) -> Path:
     return default_dir.resolve()
 
 
-def _handle_resume(skill_path: Path) -> ResumeState | None:
+def _handle_resume(skill_path: Path, *, force_restart: bool = False) -> ResumeState | None:
     """Check for an incomplete optimization and ask the user what to do.
 
     Returns the ResumeState to continue, or None to start fresh.
+
+    Parameters
+    ----------
+    force_restart : bool
+        If True (``--no-resume``), discard any previous state without
+        prompting. This avoids hanging in non-interactive environments.
     """
     state = ResumeState.load(skill_path)
     if state is None:
+        return None
+
+    if force_restart:
+        state.clear()
+        console.print("[dim]已清除旧进度（--no-resume），重新开始[/dim]")
         return None
 
     console.print(f"\n[bold yellow]⚠ 发现未完成的优化任务[/bold yellow]")
@@ -117,6 +128,17 @@ def main(argv: list[str] | None = None) -> None:
         help="Run APO optimization on stored traces instead of starting chat.",
     )
     parser.add_argument(
+        "--annotate",
+        action="store_true",
+        help="Run human-in-the-loop annotation on a dataset. "
+        "Requires --dataset. Use with --auto/--manual to set initial judge mode.",
+    )
+    parser.add_argument(
+        "--manual",
+        action="store_true",
+        help="Start annotation in manual (human) judge mode. Default is auto.",
+    )
+    parser.add_argument(
         "--ckpt",
         default=None,
         help="Restore from a checkpoint path (e.g. ckpt/writing-assistant_v1.2_20260306_140000).",
@@ -125,6 +147,18 @@ def main(argv: list[str] | None = None) -> None:
         "--ckpt-dir",
         default="./ckpt",
         help="Directory for storing checkpoints (default: ./ckpt).",
+    )
+    parser.add_argument(
+        "--dataset",
+        default=None,
+        help="Path to a ChatML JSONL dataset file. Used with --optimize to "
+        "auto-evaluate the skill and generate traces before running APO.",
+    )
+    parser.add_argument(
+        "--no-resume",
+        action="store_true",
+        help="Discard any previous incomplete optimization and start fresh "
+        "(skip the interactive resume/restart prompt).",
     )
     parser.add_argument(
         "--verbose", "-v",
@@ -179,15 +213,38 @@ def main(argv: list[str] | None = None) -> None:
     # --- Optimize mode ---
     if args.optimize:
         llm = LLMClient(config)
-        storage = TraceStorage(config.storage)
         engine = APOEngine(config, llm)
-        traces = storage.get_feedback_samples()
+
+        if args.dataset:
+            # Dataset-driven evaluation → APO pipeline
+            from evoskill.dataset import DataLoader
+            from evoskill.evaluator import Evaluator
+
+            dataset = DataLoader(args.dataset)
+            evaluator = Evaluator(config, llm)
+
+            console.print(
+                f"[bold]Evaluating[/bold] {len(dataset)} samples "
+                f"from {args.dataset} …"
+            )
+            traces = evaluator.evaluate(loaded_skill, dataset)
+            scored = [t for t in traces if t.feedback is not None]
+            avg = sum(t.feedback.score for t in scored) / len(scored) if scored else 0
+            console.print(
+                f"[dim]Evaluation: {len(scored)} scored, "
+                f"avg_score={avg:.2f}[/dim]"
+            )
+        else:
+            # Legacy: load traces from storage
+            storage = TraceStorage(config.storage)
+            traces = storage.get_feedback_samples()
+
         if not traces:
             console.print("[yellow]No feedback traces found — nothing to optimize.[/yellow]")
             sys.exit(0)
 
         # Check for resume state
-        resume = _handle_resume(skill_path)
+        resume = _handle_resume(skill_path, force_restart=args.no_resume)
         if resume is None:
             resume = ResumeState.create(
                 skill_dir=skill_path,
@@ -234,6 +291,37 @@ def main(argv: list[str] | None = None) -> None:
             f"({loaded_skill.version} → {new_skill.version})"
         )
         console.print(f"[dim]Checkpoint saved → {ckpt_path}[/dim]")
+        sys.exit(0)
+
+    # --- Annotate mode ---
+    if args.annotate:
+        if not args.dataset:
+            console.print("[red]--annotate requires --dataset <path>[/red]")
+            sys.exit(1)
+
+        from evoskill.annotate import AnnotateCLI
+        from evoskill.dataset import DataLoader
+
+        llm = LLMClient(config)
+        dataset = DataLoader(args.dataset)
+        storage = TraceStorage(config.storage)
+
+        annotator = AnnotateCLI(
+            config, llm, loaded_skill, dataset, storage,
+            auto=not args.manual,
+        )
+        traces = annotator.run()
+
+        dpo_count = sum(1 for t in traces if t.feedback and t.feedback.correction)
+        console.print(
+            f"\n[green]✓[/green] Annotation complete: {len(traces)} traces, "
+            f"{dpo_count} DPO pairs"
+        )
+        if dpo_count:
+            console.print(
+                f"[dim]Use --optimize --dataset to run APO, "
+                f"or /export-dpo in chat mode to export DPO data.[/dim]"
+            )
         sys.exit(0)
 
     # --- Chat mode ---

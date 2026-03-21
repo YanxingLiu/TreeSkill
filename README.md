@@ -38,7 +38,8 @@ EvoSkill 将 LLM prompt 优化类比为深度学习的训练循环，但**完全
 ## 安装
 
 ```bash
-cd /path/to/evo_agent
+git clone https://github.com/JimmyMa99/EvoSkill.git
+cd EvoSkill
 pip install -e .
 ```
 
@@ -91,7 +92,20 @@ You: /optimize                            ← 触发 APO 优化
 
 每次 `/bad` 和 `/rewrite` 生成一条 Trace（带反馈的交互记录），`/optimize` 时 APO 引擎从这些 Trace 中提取失败模式，计算文本梯度，重写 prompt。**领域专家不需要懂 prompt engineering，只需要判断回答好不好。**
 
-也支持全自动模式：用测试集 + LLM Judge 自动评分，循环优化直到达标。
+也支持数据集驱动的模式：
+
+```bash
+# 全自动：LLM Judge 评分 → APO 优化，无需人工
+python -m evoskill.main --optimize --dataset train.jsonl --skill my-skill --no-resume
+
+# 人机协作标注：auto-judge 打分，人可随时 override（偏好信号 → 指导 judge）
+python -m evoskill.main --annotate --dataset train.jsonl --skill my-skill
+
+# 纯手动标注
+python -m evoskill.main --annotate --dataset train.jsonl --skill my-skill --manual
+```
+
+标注模式中，人工反馈是自然语言偏好信号，既作为 APO 梯度的输入，也可导出为 DPO 微调数据。
 
 CLI 中输入 `/` 时会弹出 slash 命令候选列表，输入命令前缀时会自动收窄候选，便于快速发现和选择可用命令。
 
@@ -185,7 +199,8 @@ writing-skills/
 | 命令 | 作用 |
 |------|------|
 | `/bad <原因>` | 标记上条回复不好 |
-| `/rewrite <文本>` | 提供理想回答 |
+| `/rewrite <文本>` | 提供理想回答（同时积累 DPO 偏好数据） |
+| `/export-dpo <output.jsonl>` | 导出 DPO 偏好数据（用于微调） |
 | `/target <方向>` | 设置优化方向 |
 | `/optimize` | 触发 APO 优化（支持断点续跑） |
 | `/image <路径>` | 附加图片（多模态） |

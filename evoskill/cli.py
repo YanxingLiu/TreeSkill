@@ -73,7 +73,8 @@ _COMMAND_SPECS = [
     ("/image", "<path>", "给下一条消息附加本地图片"),
     ("/audio", "<path>", "给下一条消息附加本地音频"),
     ("/bad", "<reason>", "给上一轮回答打差评并记录原因"),
-    ("/rewrite", "<ideal response>", "给上一轮回答提供理想改写"),
+    ("/rewrite", "<ideal response>", "给上一轮回答提供理想改写（同时收集 DPO 偏好数据）"),
+    ("/export-dpo", "<output.jsonl>", "导出 DPO 偏好数据（用于微调）"),
     ("/target", "<text>", "设置长期优化方向"),
     ("/save", "", "立即保存当前 skill"),
     ("/optimize", "", "基于已记录反馈优化当前 skill"),
@@ -172,15 +173,24 @@ class ChatCLI:
 
     def run(self) -> None:
         """Start the interactive chat loop."""
+        # Count existing DPO pairs for display
+        dpo_count = len(self._storage.get_dpo_pairs())
+        dpo_tip = (
+            f"\n[dim]DPO 偏好数据: {dpo_count} 条 | "
+            f"用 /rewrite 提供理想回复可积累 DPO 训练数据, "
+            f"/export-dpo 导出[/dim]"
+        )
+
         self._console.print(
             Panel(
-                f"[bold]Evo-Framework Chat[/bold]\n"
+                f"[bold]EvoSkill Chat[/bold]\n"
                 f"Skill: [cyan]{self._skill.name}[/cyan] "
                 f"({self._skill.version})\n"
                 f"Model: [cyan]{self._config.llm.model}[/cyan]\n"
                 f"Built-in tools: [cyan]{', '.join(sorted(self._builtin_tools))}[/cyan]\n\n"
-                f"[dim]输入 / 或 /help 查看命令说明[/dim]",
-                title="🧬 Evo",
+                f"[dim]输入 / 或 /help 查看命令说明[/dim]"
+                + dpo_tip,
+                title="🧬 EvoSkill",
                 border_style="bright_blue",
             )
         )
@@ -211,7 +221,15 @@ class ChatCLI:
             full_messages = skill_module.compile_messages(
                 self._skill, self._history
             )
-            full_messages.insert(1, self._tool_guidance_message())
+            # Append tool guidance to the existing system message
+            # (some APIs reject multiple system messages)
+            if full_messages and full_messages[0].role == "system":
+                combined = full_messages[0].content
+                if isinstance(combined, str):
+                    combined += "\n\n" + self._tool_guidance_text()
+                full_messages[0] = Message(role="system", content=combined)
+            else:
+                full_messages.insert(0, Message(role="system", content=self._tool_guidance_text()))
             with self._console.status("[dim]Thinking…[/dim]"):
                 response = self._llm.generate(
                     full_messages,
@@ -261,6 +279,8 @@ class ChatCLI:
             return self._cmd_bad(arg)
         if cmd == "/rewrite":
             return self._cmd_rewrite(arg)
+        if cmd == "/export-dpo":
+            return self._cmd_export_dpo(arg)
         if cmd == "/save":
             return self._cmd_save()
         if cmd == "/optimize":
@@ -328,6 +348,9 @@ class ChatCLI:
         self._last_trace.feedback = fb
         self._storage.upsert(self._last_trace)
         self._console.print("[success]Feedback recorded (bad).[/success]")
+        self._console.print(
+            "[dim]Tip: 用 /rewrite <理想回复> 可同时积累 DPO 偏好数据[/dim]"
+        )
         return True
 
     def _cmd_rewrite(self, text: str) -> bool:
@@ -341,6 +364,22 @@ class ChatCLI:
         self._last_trace.feedback = fb
         self._storage.upsert(self._last_trace)
         self._console.print("[success]Feedback recorded (rewrite).[/success]")
+        return True
+
+    def _cmd_export_dpo(self, path_str: str) -> bool:
+        output = path_str.strip() or "dpo_pairs.jsonl"
+        count = self._storage.export_dpo(output)
+        if count == 0:
+            self._console.print(
+                "[warning]没有可导出的 DPO 数据。[/warning]\n"
+                "[dim]使用 /rewrite <理想回复> 对模型回答进行改写，即可积累偏好对。[/dim]"
+            )
+        else:
+            self._console.print(
+                f"[success]已导出 {count} 条 DPO 偏好对 →[/success] {output}\n"
+                f"[dim]格式: {{prompt, chosen, rejected, score, critique}}，"
+                f"可直接用于 DPO/RLHF 微调。[/dim]"
+            )
         return True
 
     def _cmd_save(self) -> bool:
@@ -557,15 +596,13 @@ class ChatCLI:
         self._pending_media_parts.clear()
         return Message(role="user", content=parts)
 
-    def _tool_guidance_message(self) -> Message:
-        return Message(
-            role="system",
-            content=(
-                "You have built-in local tools: list_dir, read_file, search_repo, write_file, shell. "
-                "For repository or filesystem questions, inspect the real files before answering. "
-                "Prefer list_dir/read_file/search_repo over shell when possible. "
-                "Only use write_file or destructive shell commands when the user explicitly asks for file changes."
-            ),
+    @staticmethod
+    def _tool_guidance_text() -> str:
+        return (
+            "You have built-in local tools: list_dir, read_file, search_repo, write_file, shell. "
+            "For repository or filesystem questions, inspect the real files before answering. "
+            "Prefer list_dir/read_file/search_repo over shell when possible. "
+            "Only use write_file or destructive shell commands when the user explicitly asks for file changes."
         )
 
     def _on_tool_event(self, event: str, payload: dict) -> None:
