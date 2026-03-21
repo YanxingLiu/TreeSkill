@@ -16,6 +16,8 @@ The following items have been implemented and are no longer tracked:
 - ✅ **Checkpoint management** - Rollback and state management in `evoskill/checkpoint.py`
 - ✅ **Resume state** - Optimization state persistence in `evoskill/resume.py`
 - ✅ **Built-in tools** - Python function, HTTP, and MCP tool support in `evoskill/tools.py`
+- ✅ **Fix duplicate trace writes when feedback is attached** - `/bad` and `/rewrite` now update traces by ID via `TraceStorage.upsert()` with load-time deduplication in `evoskill/storage.py`
+- ✅ **Fix SiliconFlow pytest return-value warning** - `tests/test_openai_siliconflow.py` now separates reusable script logic from the pytest test function
 
 ## P0 - Critical
 
@@ -30,21 +32,6 @@ The following items have been implemented and are no longer tracked:
   - `evoskill/core/optimizer.py` - ensure it's production-ready
   
   **Notes**: `APOEngine` is still functional but doesn't leverage the full TGD loop with `max_steps`.
-
-- [ ] **Fix duplicate trace writes when feedback is attached**
-  
-  `/bad` and `/rewrite` currently append the same trace again after adding feedback, which can pollute optimization data.
-  
-  **Root cause**: In `_cmd_bad()` and `_cmd_rewrite()`, the trace is appended twice:
-  1. Once during normal interaction flow
-  2. Again when feedback is added
-  
-  **Solution**: Use ID-based deduplication in `TraceStorage` or update the existing trace instead of re-appending.
-  
-  **Files to update**:
-  - `evoskill/cli.py` - `_cmd_bad()` and `_cmd_rewrite()` methods
-  - `evoskill/storage.py` - add deduplication logic or update method
-  - `evoskill/schema.py` - consider adding unique ID to `Trace`
 
 - [ ] **Implement automatic few-shot example construction from high-quality traces**
   

@@ -326,7 +326,7 @@ class ChatCLI:
             return True
         fb = Feedback(score=0.1, critique=reason or "Bad response")
         self._last_trace.feedback = fb
-        self._storage.append(self._last_trace)
+        self._storage.upsert(self._last_trace)
         self._console.print("[success]Feedback recorded (bad).[/success]")
         return True
 
@@ -339,7 +339,7 @@ class ChatCLI:
             return True
         fb = Feedback(score=0.1, critique="Rewrite provided", correction=text)
         self._last_trace.feedback = fb
-        self._storage.append(self._last_trace)
+        self._storage.upsert(self._last_trace)
         self._console.print("[success]Feedback recorded (rewrite).[/success]")
         return True
 

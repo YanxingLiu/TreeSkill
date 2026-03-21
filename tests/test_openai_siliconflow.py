@@ -21,8 +21,8 @@ from evoskill.core import (
 from evoskill.adapters.openai import OpenAIAdapter
 
 
-def test_siliconflow_basic():
-    """Test basic generation with SiliconFlow API."""
+def _run_siliconflow_basic():
+    """Run the basic SiliconFlow generation flow and return success details."""
     print("\n" + "=" * 60)
     print("Test 1: Basic Generation with SiliconFlow")
     print("=" * 60)
@@ -59,12 +59,22 @@ def test_siliconflow_basic():
     try:
         response = adapter.generate(prompt, temperature=0.7)
         print(f"✓ Response: {response}")
-        return adapter, prompt
+        return adapter, prompt, response
     except Exception as e:
         print(f"❌ Error: {e}")
         import traceback
         traceback.print_exc()
         return None
+
+
+def test_siliconflow_basic():
+    """Test basic generation with SiliconFlow API."""
+    result = _run_siliconflow_basic()
+    if result is None:
+        return
+
+    _adapter, _prompt, response = result
+    assert response
 
 
 def test_siliconflow_gradient():
@@ -196,7 +206,7 @@ def main():
 
     try:
         # Test 1: Basic generation
-        result = test_siliconflow_basic()
+        result = _run_siliconflow_basic()
 
         if result:
             # Test 2: Context
