@@ -187,6 +187,7 @@ writing-skills/
 | `/target <方向>` | 设置优化方向 |
 | `/optimize` | 触发 APO 优化（支持断点续跑） |
 | `/image <路径>` | 附加图片（多模态） |
+| `/audio <路径>` | 附加音频（语音输入） |
 | `/save` | 保存当前 skill |
 | `/tree` | 显示技能树 |
 | `/select <路径>` | 切换子技能（如 `social.moments`） |

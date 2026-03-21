@@ -12,6 +12,19 @@ Core Components:
 - Legacy: Backward compatible with v0.1
 """
 
+
+def _missing_optional(module_name, feature_name):
+    """Return a callable placeholder that raises a helpful import error."""
+
+    def _raiser(*args, **kwargs):
+        raise ImportError(
+            f"\n\n❌ {feature_name} 不可用\n\n"
+            f"当前代码库缺少可选模块: {module_name}\n"
+            f"如需使用该功能，请先补齐对应实现文件。\n"
+        )
+
+    return _raiser
+
 # Core abstraction layer (new)
 try:
     from evoskill.core import (
@@ -171,33 +184,55 @@ from evoskill.skill import (
 )
 
 # Script validation & storage
-from evoskill.script import (
-    ScriptValidator,
-    ScriptValidationResult,
-    ScriptIssue,
-    validate_script,
-    validate_script_file,
-    load_script,
-    save_script,
-    load_script_as_tools,
-)
+try:
+    from evoskill.script import (
+        ScriptValidator,
+        ScriptValidationResult,
+        ScriptIssue,
+        validate_script,
+        validate_script_file,
+        load_script,
+        save_script,
+        load_script_as_tools,
+    )
+except ImportError:
+    ScriptValidator = None
+    ScriptValidationResult = None
+    ScriptIssue = None
+    validate_script = _missing_optional("evoskill.script", "脚本校验")
+    validate_script_file = _missing_optional("evoskill.script", "脚本校验")
+    load_script = _missing_optional("evoskill.script", "脚本加载")
+    save_script = _missing_optional("evoskill.script", "脚本保存")
+    load_script_as_tools = _missing_optional("evoskill.script", "脚本工具加载")
 
 # Memory module
-from evoskill.memory import (
-    MEMORY_FILE,
-    MemoryType,
-    MemoryEntry,
-    MemoryStore,
-    MemoryCompiler,
-)
+try:
+    from evoskill.memory import (
+        MEMORY_FILE,
+        MemoryType,
+        MemoryEntry,
+        MemoryStore,
+        MemoryCompiler,
+    )
+except ImportError:
+    MEMORY_FILE = None
+    MemoryType = None
+    MemoryEntry = None
+    MemoryStore = None
+    MemoryCompiler = None
 
 # Schema: Agenda & ToolRef
 from evoskill.schema import AgendaEntry, AgendaType, Recurrence, ToolRef
-from evoskill.agenda import (
-    AgendaManager,
-    compile_agenda_context,
-    parse_due,
-)
+try:
+    from evoskill.agenda import (
+        AgendaManager,
+        compile_agenda_context,
+        parse_due,
+    )
+except ImportError:
+    AgendaManager = None
+    compile_agenda_context = _missing_optional("evoskill.agenda", "日程上下文编译")
+    parse_due = _missing_optional("evoskill.agenda", "日程时间解析")
 
 __version__ = "0.2.0"
 __author__ = "EvoSkill Team"

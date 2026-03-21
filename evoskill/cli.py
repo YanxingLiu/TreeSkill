@@ -3,6 +3,7 @@
 Commands
 --------
 /image <path>   — attach a local image (base64-encoded) to the next message.
+/audio <path>   — attach a local audio file (base64-encoded) to the next message.
 /bad <reason>   — mark the *previous* interaction with a low score + critique.
 /rewrite <txt>  — mark the *previous* interaction with a correction.
 /target <text>  — set a one-line optimization target (e.g. "更像人").
@@ -39,6 +40,8 @@ from evoskill.llm import LLMClient
 from evoskill.optimizer import APOEngine
 from evoskill.resume import ResumeState
 from evoskill.schema import (
+    AudioContent,
+    AudioURL,
     ContentPart,
     Feedback,
     ImageContent,
@@ -64,6 +67,7 @@ _COMMAND_SPECS = [
     ("/", "", "显示所有命令和简要说明"),
     ("/help", "", "显示所有命令和简要说明"),
     ("/image", "<path>", "给下一条消息附加本地图片"),
+    ("/audio", "<path>", "给下一条消息附加本地音频"),
     ("/bad", "<reason>", "给上一轮回答打差评并记录原因"),
     ("/rewrite", "<ideal response>", "给上一轮回答提供理想改写"),
     ("/target", "<text>", "设置长期优化方向"),
@@ -113,7 +117,7 @@ class ChatCLI:
 
         self._history: List[Message] = []
         self._last_trace: Optional[Trace] = None
-        self._pending_images: List[ContentPart] = []
+        self._pending_media_parts: List[ContentPart] = []
 
     # ------------------------------------------------------------------
     # Main loop
@@ -204,6 +208,8 @@ class ChatCLI:
 
         if cmd == "/image":
             return self._cmd_image(arg)
+        if cmd == "/audio":
+            return self._cmd_audio(arg)
         if cmd == "/bad":
             return self._cmd_bad(arg)
         if cmd == "/rewrite":
@@ -240,12 +246,30 @@ class ChatCLI:
             self._console.print(f"[error]File not found:[/error] {p}")
             return True
         data_url = _file_to_data_url(p)
-        self._pending_images.append(
+        self._pending_media_parts.append(
             ImageContent(image_url=ImageURL(url=data_url))
         )
         self._console.print(
             f"[success]Image attached:[/success] {p.name}  "
-            f"({len(self._pending_images)} pending)"
+            f"({len(self._pending_media_parts)} pending)"
+        )
+        return True
+
+    def _cmd_audio(self, path_str: str) -> bool:
+        if not path_str:
+            self._console.print("[error]Usage: /audio <path>[/error]")
+            return True
+        p = Path(path_str).expanduser().resolve()
+        if not p.is_file():
+            self._console.print(f"[error]File not found:[/error] {p}")
+            return True
+        data_url = _file_to_data_url(p)
+        self._pending_media_parts.append(
+            AudioContent(audio_url=AudioURL(url=data_url))
+        )
+        self._console.print(
+            f"[success]Audio attached:[/success] {p.name}  "
+            f"({len(self._pending_media_parts)} pending)"
         )
         return True
 
@@ -477,13 +501,13 @@ class ChatCLI:
     # ------------------------------------------------------------------
 
     def _build_user_message(self, text: str) -> Message:
-        """Build a user ``Message``, attaching any pending images."""
-        if not self._pending_images:
+        """Build a user ``Message``, attaching any pending media parts."""
+        if not self._pending_media_parts:
             return Message(role="user", content=text)
 
-        parts: List[ContentPart] = list(self._pending_images)
+        parts: List[ContentPart] = list(self._pending_media_parts)
         parts.append(TextContent(text=text))
-        self._pending_images.clear()
+        self._pending_media_parts.clear()
         return Message(role="user", content=parts)
 
     def _tool_guidance_message(self) -> Message:
@@ -548,6 +572,8 @@ def _file_to_data_url(path: Path) -> str:
     """Read a local file and return a ``data:`` URL with base64 encoding."""
     mime, _ = mimetypes.guess_type(str(path))
     mime = mime or "application/octet-stream"
+    if mime == "audio/x-wav":
+        mime = "audio/wav"
     raw = path.read_bytes()
     b64 = base64.b64encode(raw).decode("ascii")
     return f"data:{mime};base64,{b64}"

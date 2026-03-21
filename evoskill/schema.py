@@ -31,6 +31,12 @@ class ImageURL(BaseModel):
     url: str  # Regular URL or base64 data-URL
 
 
+class AudioURL(BaseModel):
+    """Inner payload for an audio content part."""
+
+    url: str  # Regular URL or base64 data-URL
+
+
 class ImageContent(BaseModel):
     """An image_url content part (for vision models)."""
 
@@ -38,8 +44,15 @@ class ImageContent(BaseModel):
     image_url: ImageURL
 
 
+class AudioContent(BaseModel):
+    """An audio_url content part (for omni/audio-capable models)."""
+
+    type: Literal["audio_url"] = "audio_url"
+    audio_url: AudioURL
+
+
 # Discriminated union keyed on `type`
-ContentPart = Union[TextContent, ImageContent]
+ContentPart = Union[TextContent, ImageContent, AudioContent]
 
 
 # ---------------------------------------------------------------------------
