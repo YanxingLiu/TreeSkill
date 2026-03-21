@@ -93,6 +93,8 @@ You: /optimize                            ← 触发 APO 优化
 
 也支持全自动模式：用测试集 + LLM Judge 自动评分，循环优化直到达标。
 
+CLI 中输入 `/` 时会弹出 slash 命令候选列表，输入命令前缀时会自动收窄候选，便于快速发现和选择可用命令。
+
 ## Skill 文件格式
 
 遵循 [Agent Skills 标准](https://agentskills.io/specification)，每个 Skill 是一个目录：

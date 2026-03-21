@@ -26,6 +26,10 @@ import mimetypes
 from pathlib import Path
 from typing import List, Optional
 
+from prompt_toolkit import PromptSession
+from prompt_toolkit.completion import Completer, Completion
+from prompt_toolkit.document import Document
+from prompt_toolkit.shortcuts import CompleteStyle
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
@@ -83,6 +87,48 @@ _COMMAND_SPECS = [
 ]
 
 
+def _get_slash_command_suggestions(text: str) -> List[str]:
+    """Return matching slash command names for the current input prefix."""
+    if not text.startswith("/") or " " in text:
+        return []
+
+    return [
+        command
+        for command, _usage, _description in _COMMAND_SPECS
+        if command.startswith(text)
+    ]
+
+
+class _SlashCommandCompleter(Completer):
+    """Prompt-toolkit completer for slash command names."""
+
+    def get_completions(self, document: Document, complete_event):
+        text = document.text_before_cursor
+        if not text.startswith("/") or " " in text:
+            return
+
+        for command, usage, description in _COMMAND_SPECS:
+            if not command.startswith(text):
+                continue
+            display = f"{command} {usage}".rstrip()
+            yield Completion(
+                text=command,
+                start_position=-len(text),
+                display=display,
+                display_meta=description,
+            )
+
+
+def _build_chat_prompt_session() -> PromptSession[str]:
+    """Create the interactive prompt session used by the chat loop."""
+    return PromptSession(
+        completer=_SlashCommandCompleter(),
+        complete_while_typing=True,
+        complete_style=CompleteStyle.MULTI_COLUMN,
+        reserve_space_for_menu=10,
+    )
+
+
 class ChatCLI:
     """Interactive terminal chat powered by Evo-Framework.
 
@@ -114,6 +160,7 @@ class ChatCLI:
         self._optimizer = APOEngine(config, self._llm)
         self._ckpt = CheckpointManager(ckpt_dir)
         self._builtin_tools = build_builtin_tools()
+        self._prompt_session = _build_chat_prompt_session()
 
         self._history: List[Message] = []
         self._last_trace: Optional[Trace] = None
@@ -140,7 +187,7 @@ class ChatCLI:
 
         while True:
             try:
-                raw = Prompt.ask("\n[bold green]You[/bold green] [dim](/ 查看命令)[/dim]")
+                raw = self._prompt_session.prompt("You (/ 查看命令)\n> ")
             except (EOFError, KeyboardInterrupt):
                 self._console.print("\n[info]Goodbye![/info]")
                 break

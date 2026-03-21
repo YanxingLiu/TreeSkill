@@ -33,7 +33,11 @@ for missing_module, attrs in {
         setattr(module, name, value)
     sys.modules.setdefault(missing_module, module)
 
-from evoskill.cli import ChatCLI
+from evoskill.cli import (
+    ChatCLI,
+    _build_chat_prompt_session,
+    _get_slash_command_suggestions,
+)
 from evoskill.config import GlobalConfig
 from evoskill.schema import Skill
 
@@ -82,3 +86,28 @@ def test_build_user_message_includes_pending_audio(tmp_path: Path):
     assert message.content[1].type == "text"
     assert message.content[1].text == "请总结这段录音"
     assert cli._pending_media_parts == []
+
+
+def test_slash_command_suggestions_return_full_command_list():
+    suggestions = _get_slash_command_suggestions("/")
+
+    assert "/help" in suggestions
+    assert "/audio" in suggestions
+    assert "/select" in suggestions
+    assert "/quit" in suggestions
+
+
+def test_slash_command_suggestions_filter_by_prefix():
+    suggestions = _get_slash_command_suggestions("/h")
+
+    assert suggestions == ["/help"]
+
+
+def test_slash_command_suggestions_ignore_non_slash_input():
+    assert _get_slash_command_suggestions("hello") == []
+
+
+def test_build_chat_prompt_session_uses_slash_completer():
+    session = _build_chat_prompt_session()
+
+    assert session.completer is not None
