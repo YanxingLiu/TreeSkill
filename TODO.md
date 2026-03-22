@@ -2,7 +2,7 @@
 
 This file tracks the confirmed unfinished tasks in the current TreeSkill codebase.
 
-**Last Updated**: March 21, 2026
+**Last Updated**: March 22, 2026
 
 ## ✅ Completed Items
 
@@ -23,6 +23,7 @@ The following items have been implemented and are no longer tracked:
 - ✅ **Non-interactive resume skip** - `--no-resume` flag to skip interactive resume prompt, fixes hang in CI/script environments
 - ✅ **Dataset-driven evaluation pipeline** - `DataLoader` in `treeskill/dataset.py` and `Evaluator` in `treeskill/evaluator.py` for ChatML JSONL datasets
 - ✅ **English documentation** - Full English README at `docs_en/README.md` with language switcher
+- ✅ **Improve storage concurrency safety** - `TraceStorage` now uses cross-process file locking plus atomic full-file rewrites to avoid lost updates under concurrent `upsert()`/append flows
 
 ## P0 - Critical
 
@@ -94,19 +95,6 @@ The following items have been implemented and are no longer tracked:
   - `treeskill/cli.py` - add `/merge` command
 
 ## P2 - Nice to Have
-
-- [ ] **Improve storage concurrency safety**
-  
-  The current JSONL append model may fail under multi-process usage and likely needs file locking or a different backend.
-  
-  **Proposed solutions**:
-  - Add file locking with `fcntl` (Unix) or `msvcrt` (Windows)
-  - Consider SQLite backend for high-concurrency scenarios
-  - Add atomic write operations
-  
-  **Files to update**:
-  - `treeskill/storage.py` - add locking mechanism
-  - `treeskill/config.py` - add storage backend configuration
 
 - [ ] **Expand multimodal failure analysis beyond placeholder handling**
   

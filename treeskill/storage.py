@@ -1,8 +1,8 @@
-"""Trace Storage — append-only JSONL persistence for interaction traces.
+"""Trace Storage — JSONL persistence for interaction traces.
 
 Each line in the JSONL file is a self-contained JSON object representing
-a single ``Trace`` record.  This makes it safe for concurrent appenders
-and trivially streamable.
+a single ``Trace`` record. A sidecar lock file serializes readers and
+writers so append and rewrite flows stay consistent across processes.
 
 DPO export: traces with ``feedback.correction`` can be exported as
 preference pairs for Direct Preference Optimization fine-tuning.
@@ -10,8 +10,11 @@ preference pairs for Direct Preference Optimization fine-tuning.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
+import os
+import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
@@ -33,6 +36,7 @@ class TraceStorage:
     def __init__(self, config: StorageConfig) -> None:
         self._path = Path(config.trace_path)
         self._path.parent.mkdir(parents=True, exist_ok=True)
+        self._lock_path = self._path.with_name(f"{self._path.name}.lock")
 
     # ------------------------------------------------------------------
     # Public API
@@ -40,27 +44,34 @@ class TraceStorage:
 
     def append(self, trace: Trace) -> None:
         """Serialize *trace* and append it as a single JSON line."""
-        with self._path.open("a", encoding="utf-8") as fh:
-            fh.write(trace.model_dump_json() + "\n")
+        with self._exclusive_lock():
+            self._append_unlocked(trace)
 
     def upsert(self, trace: Trace) -> None:
         """Persist *trace*, replacing an existing record with the same ID."""
-        traces = self.load_all()
-        replaced = False
+        with self._exclusive_lock():
+            traces = self.load_all(lock=False)
+            replaced = False
 
-        for index, existing in enumerate(traces):
-            if existing.id == trace.id:
-                traces[index] = trace
-                replaced = True
-                break
+            for index, existing in enumerate(traces):
+                if existing.id == trace.id:
+                    traces[index] = trace
+                    replaced = True
+                    break
 
-        if not replaced:
-            traces.append(trace)
+            if not replaced:
+                traces.append(trace)
 
-        self._write_all(traces)
+            self._write_all(traces)
 
-    def load_all(self) -> List[Trace]:
+    def load_all(self, *, lock: bool = True) -> List[Trace]:
         """Read every trace from the JSONL file, deduplicated by trace ID."""
+        if lock:
+            with self._exclusive_lock():
+                return self.load_all(lock=False)
+        return self._load_all_unlocked()
+
+    def _load_all_unlocked(self) -> List[Trace]:
         if not self._path.exists():
             return []
         traces_by_id: Dict[str, Trace] = {}
@@ -136,10 +147,43 @@ class TraceStorage:
 
         return pairs
     
+    def _append_unlocked(self, trace: Trace) -> None:
+        with self._path.open("a", encoding="utf-8") as fh:
+            fh.write(trace.model_dump_json() + "\n")
+            fh.flush()
+            os.fsync(fh.fileno())
+
     def _write_all(self, traces: List[Trace]) -> None:
-        with self._path.open("w", encoding="utf-8") as fh:
+        with tempfile.NamedTemporaryFile(
+            "w",
+            encoding="utf-8",
+            dir=self._path.parent,
+            prefix=f"{self._path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as fh:
+            tmp_path = Path(fh.name)
             for trace in traces:
                 fh.write(trace.model_dump_json() + "\n")
+            fh.flush()
+            os.fsync(fh.fileno())
+
+        try:
+            tmp_path.replace(self._path)
+        except Exception:
+            with contextlib.suppress(FileNotFoundError):
+                tmp_path.unlink()
+            raise
+
+    @contextlib.contextmanager
+    def _exclusive_lock(self):
+        self._lock_path.parent.mkdir(parents=True, exist_ok=True)
+        with self._lock_path.open("a+b") as fh:
+            _lock_file(fh)
+            try:
+                yield
+            finally:
+                _unlock_file(fh)
 
     def export_dpo(
         self,
@@ -200,3 +244,23 @@ def _messages_to_chatml(messages: List[Message]) -> List[Dict[str, str]]:
         {"role": m.role, "content": _message_content_to_str(m.content)}
         for m in messages
     ]
+
+
+if os.name == "nt":
+    import msvcrt
+
+    def _lock_file(fh) -> None:
+        fh.seek(0)
+        msvcrt.locking(fh.fileno(), msvcrt.LK_LOCK, 1)
+
+    def _unlock_file(fh) -> None:
+        fh.seek(0)
+        msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)
+else:
+    import fcntl
+
+    def _lock_file(fh) -> None:
+        fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
+
+    def _unlock_file(fh) -> None:
+        fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
